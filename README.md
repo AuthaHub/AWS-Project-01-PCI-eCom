@@ -1,131 +1,98 @@
-# Project 1 — PCI eCom Demo (Terraform)
+# Project 1: PCI-DSS Compliant E-Commerce Platform
 
-## What this project demonstrates
-- Built a reusable AWS network foundation (VPC + public/private subnets, routing) using Terraform.
-- Deployed an edge layer with an internet-facing Application Load Balancer (ALB) and AWS WAF (managed rules baseline).
-- Deployed a minimal application placeholder (EC2 + nginx) behind the ALB to validate end-to-end connectivity.
-- Practiced cost control by tearing down billable resources after validation while keeping the network foundation for reuse.
+## Business Context
 
-## Architecture (high level)
-Internet → ALB (public subnets) → Target Group → EC2 app (reachable only from ALB SG)  
-WAF (regional) attached to ALB
+A retail e-commerce company processing customer payment card transactions
+required a cloud infrastructure that meets Payment Card Industry Data
+Security Standard (PCI-DSS v4.0.1) requirements. The platform needed
+network segmentation, encryption at rest, web application protection,
+and a full audit logging trail to satisfy compliance obligations and
+protect cardholder data.
 
-## Security Controls (mapped to intent)
+## Architecture Overview
 
-## Build Steps (Terraform)
-### Prereqs
-- AWS account + IAM user/role with permissions to create VPC/EC2/ALB/WAF
-- Terraform installed
-- AWS credentials configured (environment variables or AWS CLI profile)
+![Architecture Diagram](docs/screenshots/P1-architecture-diagram.png)
 
-### Recommended build order (module-by-module)
-> Run each set of commands from inside that module folder.
+### Module 1 — Network Foundation (10-network)
 
-#### 00-foundation (validation-only / state baseline)
-```powershell
-cd terraform/00-foundation
-terraform fmt
-terraform init
-terraform validate
-terraform plan
-terraform apply
-```
+* Multi-AZ VPC with public and private subnets across us-east-1a and us-east-1b
+* Internet Gateway for public subnet outbound routing
+* Private subnets with no internet route — enforces network segmentation
+* Separate route tables for public and private tiers
 
-#### 10-network (creates VPC + subnets + routing)
-```powershell
-cd terraform/10-network
-terraform fmt
-terraform init
-terraform validate
-terraform plan
-terraform apply
-terraform output
-```
+### Module 2 — Edge & WAF (20-edge-waf)
 
-#### 20-edge-waf (creates ALB + WAF)
-```powershell
-cd terraform/20-edge-waf
-terraform fmt
-terraform init
-terraform validate
-terraform plan
-terraform apply
-terraform output
-```
+* Internet-facing Application Load Balancer across public subnets
+* AWS WAFv2 with AWSManagedRulesCommonRuleSet attached to ALB
+* ALB security group restricting inbound to HTTP:80 only
+* Target group configured for EC2 health checks
 
-#### 25-app-ec2 (creates EC2 app + registers to target group)
-```powershell
-cd terraform/25-app-ec2
-terraform fmt
-terraform init
-terraform validate
-terraform plan
-terraform apply
-terraform output
-```
+### Module 3 — Application Layer (25-app-ec2)
 
-## Evidence (Screenshots)
-See `docs/screenshots/` for console validation screenshots for each phase.
+* EC2 t3.micro running nginx as application placeholder
+* App security group allowing inbound only from ALB security group
+* Instance registered to ALB target group — verified healthy
 
-## Cost Controls
-### What costs money in this project
-- ALB (20-edge-waf): billed while running
-- AWS WAF (20-edge-waf): billed while enabled
-- EC2 + EBS (25-app-ec2): billed while running / storage while exists
-``
+### Module 4 — Data Layer (30-data)
 
-### Safe teardown order (to avoid dependency errors)
-Destroy in reverse order of creation:
-```powershell
-cd terraform/25-app-ec2
-terraform destroy
-# type: yes
+* RDS MySQL 8.0 in private subnets — not publicly accessible
+* Multi-AZ enabled for high availability and automatic failover
+* KMS customer-managed key with automatic rotation for encryption at rest
+* RDS security group allowing MySQL port 3306 from app tier only
 
-cd ../20-edge-waf
-terraform destroy
-# type: yes
+### Module 5 — Logging & Audit Evidence (40-logging-evidence)
 
-Current status: 25-app-ec2, 20-edge-waf, and 10-network have been destroyed (no running infrastructure from Project 1).
+* CloudTrail capturing all API calls with log file validation enabled
+* VPC Flow Logs capturing all network traffic — 7 day retention in CloudWatch
+* S3 logging bucket with AES-256 encryption, versioning, and public access blocked
 
+## PCI-DSS Principles Applied
 
-## Lessons Learned / Interview Talk Track
-- "I built a PCI-DSS compliant e-commerce platform entirely with Terraform,
-  which taught me how compliance requirements translate directly into 
-  infrastructure decisions — for example, why private subnets are required 
-  for cardholder data under Requirement 1.3."
+* Network segmentation enforced — cardholder data environment isolated in private subnets with no direct internet route
+* Least privilege security groups — each tier only accepts traffic from the tier directly above it
+* Encryption at rest — RDS storage encrypted with KMS customer-managed key with automatic rotation
+* Web application firewall — WAFv2 with OWASP managed rules protects against SQLi, XSS, and common web attacks
+* Audit logging — CloudTrail captures every API action with tamper-evident log file validation
+* Network traffic monitoring — VPC Flow Logs capture all traffic metadata for anomaly detection
+* Log protection — S3 logging bucket encrypted, versioned, and fully blocked from public access
+* No publicly accessible database — RDS deployed in private subnets, publicly_accessible = false
 
-- "I learned to troubleshoot real-world Terraform issues including stale 
-  resource IDs after destroy/rebuild cycles and CloudTrail S3 bucket policy 
-  requirements — problems you only encounter by actually building."
+# Compliance Alignment
 
-- "I practiced cost-conscious infrastructure management by spinning up 
-  expensive resources like Multi-AZ RDS only long enough to verify and 
-  document them, then destroying immediately."
+| PCI-DSS Requirement | Description | Implementation |
+|---------------------|-------------|----------------|
+| Req 1.2 | Restrict inbound and outbound traffic | Security groups enforce least privilege between all tiers |
+| Req 1.3 | Prohibit direct public access to cardholder data environment | RDS and EC2 in private subnets with no internet route |
+| Req 3.5 | Protect stored account data with strong cryptography | KMS CMK encryption on RDS with automatic key rotation |
+| Req 6.4 | Protect web-facing applications from attacks | WAFv2 with AWSManagedRulesCommonRuleSet on ALB |
+| Req 10.2 | Implement audit logs to detect anomalies | CloudTrail capturing all API calls across the account |
+| Req 10.3 | Protect audit logs from destruction and modification | Log file validation enabled, S3 bucket versioned and encrypted |
+| Req 10.4 | Secure audit logs from unauthorized access | S3 public access fully blocked, bucket policy restricts writes |
+| Req 10.7 | Retain audit log history | CloudWatch log retention configured, S3 versioning enabled |
+| Req 12.10 | Respond to suspected or confirmed security incidents | Multi-AZ RDS provides automatic failover for availability |
 
-- "Every architecture decision in this project has a documented rationale 
-  tied to a specific PCI-DSS requirement, which mirrors how security 
-  engineers think about compliance in production environments."
+## Infrastructure as Code
 
-## Project Status
-**COMPLETE** — February 18, 2026
+All resources deployed via Terraform across 5 modules:
 
-All modules built, verified, documented, and destroyed.
+* `Terraform/10-network` — VPC, subnets, route tables, Internet Gateway
+* `Terraform/20-edge-waf` — ALB, WAFv2, security groups, target group
+* `Terraform/25-app-ec2` — EC2 instance, app security group, target group attachment
+* `Terraform/30-data` — RDS MySQL, KMS key, DB subnet group, RDS security group
+* `Terraform/40-logging-evidence` — CloudTrail, VPC Flow Logs, S3 logging bucket
 
-| Module | Resources | Status |
-|--------|-----------|--------|
-| 10-network | 13 | Complete |
-| 20-edge-waf | 6 | Complete |
-| 25-app-ec2 | 3 | Complete |
-| 30-data | 7 | Complete |
-| 40-logging-evidence | 11 | Complete |
+## Tools & Technologies
 
-## Compliance Coverage
-| PCI-DSS Requirement | Implementation |
-|---------------------|----------------|
-| Req 1.2/1.3 | VPC segmentation, private subnets, security groups |
-| Req 3.5 | KMS customer-managed keys for RDS encryption |
-| Req 6.6 | WAF with OWASP managed rules |
-| Req 10.2 | CloudTrail audit logging |
-| Req 10.5 | Log file validation enabled |
-| Req 10.6 | VPC Flow Logs to CloudWatch |
-| Req 12.10 | Multi-AZ RDS for high availability |
+* Terraform >= 1.0
+* AWS (VPC, EC2, ALB, WAFv2, RDS MySQL, KMS, CloudTrail, VPC Flow Logs, CloudWatch, S3)
+* MySQL 8.0
+* nginx
+* GitHub: AuthaHub
+
+## References
+
+* [PCI DSS v4.0.1 — Official Framework](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)
+* [AWS WAF Developer Guide](https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html)
+* [AWS RDS Encryption at Rest](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html)
+* [AWS CloudTrail User Guide](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html)
+* [AWS VPC Flow Logs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html)
