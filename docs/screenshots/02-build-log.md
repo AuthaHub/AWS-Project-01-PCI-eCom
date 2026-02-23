@@ -106,7 +106,7 @@
 ## Module 4 — Data Layer (30-data)
 
 **Date:** February 18, 2026
-**Status:** ✅ Complete — destroyed same session
+**Status:** Complete — destroyed same session
 
 ### Resources Created
 | Resource | Name |
@@ -144,7 +144,7 @@ Estimated cost: < $0.10
 ## Module 5 — Logging & Audit Evidence (40-logging-evidence)
 
 **Date:** February 18, 2026
-**Status:** ✅ Complete — destroyed same session
+**Status:** Complete — destroyed same session
 
 ### Resources Created
 | Resource | Name |
