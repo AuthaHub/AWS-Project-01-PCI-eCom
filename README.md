@@ -9,6 +9,8 @@ network segmentation, encryption at rest, web application protection,
 and a full audit logging trail to satisfy compliance obligations and
 protect cardholder data.
 
+---
+
 ## Architecture Overview
 
 ![Architecture Diagram](docs/screenshots/P1-architecture-diagram.png)
@@ -46,6 +48,8 @@ protect cardholder data.
 * VPC Flow Logs capturing all network traffic — 7 day retention in CloudWatch
 * S3 logging bucket with AES-256 encryption, versioning, and public access blocked
 
+---
+
 ## How to Deploy
 
 ### Prerequisites
@@ -56,7 +60,6 @@ protect cardholder data.
 * Git installed
 
 ### Deploy Order
-```
 
 Deploy modules in this exact order — each module depends on the one before it:
 ```powershell
@@ -86,7 +89,7 @@ terraform init && terraform plan
 terraform apply
 ```
 
-> After deploying each module run `terraform output` and update the
+> ⚠️ After deploying each module run `terraform output` and update the
 > `terraform.tfvars` in the next module with the output values before applying.
 
 ### How to Destroy (Cost Control)
@@ -99,8 +102,10 @@ cd ../20-edge-waf && terraform destroy
 cd ../10-network && terraform destroy
 ```
 
-> Destroy RDS (30-data) immediately after validation — it costs ~$0.034/hr.
+> ⚠️ Destroy RDS (30-data) immediately after validation — it costs ~$0.034/hr.
 > Do not leave any module running overnight.
+
+---
 
 ## PCI-DSS Principles Applied
 
@@ -113,7 +118,9 @@ cd ../10-network && terraform destroy
 * Log protection — S3 logging bucket encrypted, versioned, and fully blocked from public access
 * No publicly accessible database — RDS deployed in private subnets, publicly_accessible = false
 
-# Compliance Alignment
+---
+
+## Compliance Alignment
 
 | PCI-DSS Requirement | Description | Implementation |
 |---------------------|-------------|----------------|
@@ -127,6 +134,8 @@ cd ../10-network && terraform destroy
 | Req 10.7 | Retain audit log history | CloudWatch log retention configured, S3 versioning enabled |
 | Req 12.10 | Respond to suspected or confirmed security incidents | Multi-AZ RDS provides automatic failover for availability |
 
+---
+
 ## Infrastructure as Code
 
 All resources deployed via Terraform across 5 modules:
@@ -137,6 +146,8 @@ All resources deployed via Terraform across 5 modules:
 * `Terraform/30-data` — RDS MySQL, KMS key, DB subnet group, RDS security group
 * `Terraform/40-logging-evidence` — CloudTrail, VPC Flow Logs, S3 logging bucket
 
+---
+
 ## Tools & Technologies
 
 * Terraform >= 1.0
@@ -144,6 +155,8 @@ All resources deployed via Terraform across 5 modules:
 * MySQL 8.0
 * nginx
 * GitHub: AuthaHub
+
+---
 
 ## References
 
