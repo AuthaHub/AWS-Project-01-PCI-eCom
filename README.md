@@ -46,6 +46,62 @@ protect cardholder data.
 * VPC Flow Logs capturing all network traffic — 7 day retention in CloudWatch
 * S3 logging bucket with AES-256 encryption, versioning, and public access blocked
 
+## How to Deploy
+
+### Prerequisites
+
+* AWS account with IAM permissions for VPC, EC2, ALB, WAF, RDS, KMS, CloudTrail, S3, CloudWatch
+* Terraform >= 1.0 installed
+* AWS CLI configured with credentials (`aws configure`)
+* Git installed
+
+### Deploy Order
+```
+
+Deploy modules in this exact order — each module depends on the one before it:
+```powershell
+# 1 — Network Foundation
+cd Terraform/10-network
+terraform init && terraform plan
+terraform apply
+
+# 2 — Edge & WAF (requires 10-network outputs)
+cd ../20-edge-waf
+terraform init && terraform plan
+terraform apply
+
+# 3 — Application Layer (requires 20-edge-waf outputs)
+cd ../25-app-ec2
+terraform init && terraform plan
+terraform apply
+
+# 4 — Data Layer (requires 10-network outputs)
+cd ../30-data
+terraform init && terraform plan
+terraform apply
+
+# 5 — Logging & Audit (requires 10-network + 20-edge-waf outputs)
+cd ../40-logging-evidence
+terraform init && terraform plan
+terraform apply
+```
+
+> After deploying each module run `terraform output` and update the
+> `terraform.tfvars` in the next module with the output values before applying.
+
+### How to Destroy (Cost Control)
+
+Always destroy in reverse order to avoid dependency errors:
+```powershell
+cd Terraform/40-logging-evidence && terraform destroy
+cd ../25-app-ec2 && terraform destroy
+cd ../20-edge-waf && terraform destroy
+cd ../10-network && terraform destroy
+```
+
+> Destroy RDS (30-data) immediately after validation — it costs ~$0.034/hr.
+> Do not leave any module running overnight.
+
 ## PCI-DSS Principles Applied
 
 * Network segmentation enforced — cardholder data environment isolated in private subnets with no direct internet route
