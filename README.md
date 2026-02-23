@@ -89,7 +89,7 @@ terraform init && terraform plan
 terraform apply
 ```
 
-> ⚠️ After deploying each module run `terraform output` and update the
+> After deploying each module run `terraform output` and update the
 > `terraform.tfvars` in the next module with the output values before applying.
 
 ### How to Destroy (Cost Control)
@@ -102,7 +102,7 @@ cd ../20-edge-waf && terraform destroy
 cd ../10-network && terraform destroy
 ```
 
-> ⚠️ Destroy RDS (30-data) immediately after validation — it costs ~$0.034/hr.
+> Destroy RDS (30-data) immediately after validation — it costs ~$0.034/hr.
 > Do not leave any module running overnight.
 
 ---
